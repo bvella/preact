@@ -161,6 +161,54 @@ describe('suspense', () => {
 		});
 	});
 
+	it('should support a call to setState before rendering the fallback', () => {
+		const LazyComp = ({ name }) => <div>Hello from {name}</div>;
+
+		/** @type {() => Promise<void>} */
+		let resolve;
+		const Lazy = lazy(() => {
+			const p = new Promise(res => {
+				resolve = () => {
+					res({ default: LazyComp });
+					return p;
+				};
+			});
+
+			return p;
+		});
+
+		/** @type {(Object) => void} */
+		let setState;
+		class App extends Component {
+			constructor(props) {
+				super(props);
+				this.state = {};
+				setState = this.setState.bind(this);
+			}
+			render(props, state) {
+				return (
+					<Fragment>
+						<Suspense fallback={<div>Suspended...</div>}>
+							<Lazy name="LazyComp" />
+						</Suspense>
+					</Fragment>
+				);
+			}
+		}
+
+		render(<App />, scratch); // Render initial state
+
+		setState({ foo: 'bar' });
+		rerender();
+
+		expect(scratch.innerHTML).to.eql(`<div>Suspended...</div>`);
+
+		return resolve().then(() => {
+			rerender();
+			expect(scratch.innerHTML).to.eql(`<div>Hello from LazyComp</div>`);
+		});
+	});
+
 	it('lazy should forward refs', () => {
 		const LazyComp = () => <div>Hello from LazyComp</div>;
 		let ref = {};
@@ -739,8 +787,8 @@ describe('suspense', () => {
 				expect(scratch.innerHTML).to.eql(
 					`<div>Hello first 2</div><div>Hello second 2</div>`
 				);
-				expect(Suspender1.prototype.render).to.have.been.calledThrice;
-				expect(Suspender2.prototype.render).to.have.been.calledThrice;
+				expect(Suspender1.prototype.render).to.have.been.calledTwice;
+				expect(Suspender2.prototype.render).to.have.been.calledTwice;
 			});
 		});
 	});
@@ -793,8 +841,8 @@ describe('suspense', () => {
 				expect(scratch.innerHTML).to.eql(
 					`<div>Hello first 2</div><div><div>Hello second 2</div></div>`
 				);
-				expect(Suspender1.prototype.render).to.have.been.calledThrice;
-				expect(Suspender2.prototype.render).to.have.been.calledThrice;
+				expect(Suspender1.prototype.render).to.have.been.calledTwice;
+				expect(Suspender2.prototype.render).to.have.been.calledTwice;
 			});
 		});
 	});

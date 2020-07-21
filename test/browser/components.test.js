@@ -1752,7 +1752,7 @@ describe('Components', () => {
 			}
 		}
 
-		let condition = false;
+		let renderChildDiv = false;
 
 		let child;
 		class Child extends Component {
@@ -1761,7 +1761,7 @@ describe('Components', () => {
 			}
 			render() {
 				child = this;
-				if (!condition) return null;
+				if (!renderChildDiv) return null;
 				return <div class="child" />;
 			}
 		}
@@ -1786,14 +1786,14 @@ describe('Components', () => {
 		expect(getDom(child)).to.equalNode(child.base);
 
 		parent.setState({});
-		condition = true;
+		renderChildDiv = true;
 		child.forceUpdate();
 		expect(getDom(child)).to.equalNode(child.base);
 		rerender();
 
 		expect(getDom(child)).to.equalNode(child.base);
 
-		condition = false;
+		renderChildDiv = false;
 		app.setState({});
 		child.forceUpdate();
 		rerender();
@@ -2529,6 +2529,34 @@ describe('Components', () => {
 			expect(() => increment()).to.not.throw();
 			expect(() => rerender()).to.not.throw();
 			expect(scratch.innerHTML).to.equal('');
+		});
+
+		it('setState callbacks should have latest state, even when called in render', () => {
+			let callbackState;
+			let i = 0;
+
+			class Foo extends Component {
+				constructor(props) {
+					super(props);
+					this.state = { foo: 'bar' };
+				}
+				render() {
+					// So we don't get infinite loop
+					if (i++ === 0) {
+						this.setState({ foo: 'baz' }, () => {
+							callbackState = this.state;
+						});
+					}
+					return String(this.state.foo);
+				}
+			}
+
+			render(<Foo />, scratch);
+			expect(scratch.innerHTML).to.equal('bar');
+
+			rerender();
+			expect(scratch.innerHTML).to.equal('baz');
+			expect(callbackState).to.deep.equal({ foo: 'baz' });
 		});
 	});
 
